@@ -20,18 +20,14 @@
   function show(layer){ layerA.classList.remove('show'); layerB.classList.remove('show'); layer.classList.add('show') }
   function sleep(ms){ return new Promise(r=>setTimeout(r,ms)) }
 
-  let code = null
-  function randomCode(){ const n=Math.floor(100000+Math.random()*900000).toString(); return n.slice(0,3)+'-'+n.slice(3) }
   async function heartbeat(nowPlaying){ if(!tvId) return; try{ await fetch(`/api/tvs/${tvId}/heartbeat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nowPlaying})}) }catch(e){} }
 
-  async function pollApproval(){ if(!code) return; try{ const r=await fetch(`/api/codes/${code}/status`); if(r.status===410){ showCode(); return } const j=await r.json(); if(j.approved){ tvId=j.tvId; localStorage.setItem('tvId', tvId); startPlayer() } }catch(e){} }
-
-  async function startPlayer(){ pairEl.style.display='none'; playerEl.style.display='block'; playLoop(); setInterval(fetchPlaylist, 5000); setInterval(pollCommands, 3000) }
+  async function startPlayer(){ pairEl.style.display='none'; playerEl.style.display='block'; playLoop(); setInterval(fetchPlaylist, 5000); setInterval(pollCommands, 3000); }
 
   async function pollCommands(){ if(!tvId) return; try{ const j=await (await fetch(`/api/commands/${tvId}?x=${Date.now()}`)).json(); if(j.reload){ location.reload() } }catch(e){} }
 
   let state = { items:[], fixed:{enabled:false,item:null}, updatedAt:0 }
-  async function fetchPlaylist(){ if(!tvId) return; try{ const r=await fetch(`/api/playlists/${tvId}`,{cache:'no-store'}); const j=await r.json(); state=j }catch(e){ state={items:[], fixed:{enabled:false,item:null}, updatedAt:0} } }
+  async function fetchPlaylist(){ if(!tvId) return; try{ const r=await fetch(`/api/playlists/${tvId}`,{cache:'no-store'}); const j=await r.json(); state=j; const ov=document.getElementById('overlay'); if(ov){ const has=(j.fixed&&j.fixed.enabled&&j.fixed.item)||((j.items||[]).length>0); ov.style.display=has?'none':'flex' } }catch(e){ state={items:[], fixed:{enabled:false,item:null}, updatedAt:0} } }
 
   function withinWindow(it){ const now=Date.now(); const s=it.start_at?Date.parse(it.start_at):null; const e=it.end_at?Date.parse(it.end_at):null; if(s&&now<s) return false; if(e&&now>e) return false; return true }
 
@@ -39,11 +35,11 @@
     let list=[]
     if(state.fixed && state.fixed.enabled && state.fixed.item){ list=[state.fixed.item] }
     else { list=(state.items||[]).filter(it=>it.enabled!==false && withinWindow(it)) }
-    if(!list.length){ await sleep(500); continue }
+    if(!list.length){ const ov=document.getElementById('overlay'); if(ov) ov.style.display='flex'; await sleep(500); continue }
     const it = list[idx % list.length]
     try{ await playItem(it) }catch(e){}
     idx++; if(idx>999999) idx=0
-    await sleep(1000) // delay entre itens
+    await sleep(1000)
   } }
 
   async function loadImage(el, src){ return new Promise((res,rej)=>{ el.onload=()=>res(); el.onerror=rej; el.src=src }) }
@@ -74,7 +70,19 @@
     }
   }
 
-  async function showCode(){ playerEl.style.display='none'; pairEl.style.display='flex'; code=randomCode(); codeEl.textContent=code; try{ await fetch('/api/codes/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})}) }catch(e){} if(!tvId) setInterval(pollApproval, 2000) }
+  async function requestPair(){ try{
+    const r = await fetch('/api/pair/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ tvId })})
+    const j = await r.json()
+    if(!r.ok) throw new Error('pair request failed')
+    tvId = j.tvId
+    localStorage.setItem('tvId', tvId)
+    codeEl.textContent = j.code
+  }catch(e){ codeEl.textContent='OFFLINE'; }
+  }
+  async function pollPair(){ if(!tvId) return; try{ const r = await fetch(`/api/pair/status?tvId=${encodeURIComponent(tvId)}`); const j = await r.json(); if(j.approved){ startPlayer(); return } if(j.expired){ await requestPair() } }catch(e){} }
 
-  if(tvId){ startPlayer() } else { showCode() }
+  async function boot(){ if(tvId){ try{ const j = await (await fetch(`/api/tvs/${encodeURIComponent(tvId)}/status`)).json(); if(j.exists){ startPlayer(); return } }catch(e){} localStorage.removeItem('tvId'); tvId=null }
+    playerEl.style.display='none'; pairEl.style.display='flex'; await requestPair(); setInterval(pollPair,2000) }
+
+  boot()
 })()

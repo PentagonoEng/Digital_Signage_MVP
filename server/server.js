@@ -67,57 +67,126 @@ const storage = multer.diskStorage({
 const upload = multer({ storage })
 
 // -------------------- Codes (pareamento) --------------------
-app.post('/api/codes/request', (req, res) => {
-  const { code } = req.body
-  if (!code) return res.status(400).json({ error: 'Payload inválido: code é obrigatório' })
+app.post('/api/pair/request', (req, res) => {
+  const { tvId: bodyTvId } = req.body || {}
+  const tvs = readJSON('tvs.json', { tvs: [] })
   const codes = readJSON('codes.json', { pending: {} })
-  codes.pending[code] = { createdAt: Date.now() }
+  let tvId = bodyTvId || nanoid(8)
+  const gen = () => {
+    const n = Math.floor(100000 + Math.random() * 900000).toString()
+    return n.slice(0, 3) + '-' + n.slice(3)
+  }
+  let used = new Set([
+    ...Object.values(codes.pending).map((p) => p.code),
+    ...tvs.tvs.map((t) => t.lastCode).filter(Boolean),
+  ])
+  let code = gen()
+  while (used.has(code)) code = gen()
+  codes.pending[tvId] = { code, createdAt: Date.now() }
   writeJSON('codes.json', codes)
-  logLine(`DISPLAY_CODE_REQUEST code=${code}`)
-  res.json({ ok: true })
+  logLine(`PAIR_REQUEST tv=${tvId} code=${code}`)
+  res.json({ tvId, code, expiresAt: Date.now() + 10 * 60 * 1000 })
 })
 
-app.get('/api/codes/:code/status', (req, res) => {
-  const code = req.params.code
-  const codes = readJSON('codes.json', { pending: {} })
+app.get('/api/pair/status', (req, res) => {
+  const tvId = req.query.tvId
+  if (!tvId) return res.status(400).json({ error: 'tvId obrigatório' })
   const tvs = readJSON('tvs.json', { tvs: [] })
-
-  const tv = tvs.tvs.find((t) => t.lastCode === code)
-  if (tv) return res.json({ approved: true, tvId: tv.id })
-
-  const p = codes.pending[code]
-  if (p && Date.now() - p.createdAt > 10 * 60 * 1000) {
-    delete codes.pending[code]
+  const codes = readJSON('codes.json', { pending: {} })
+  const tv = tvs.tvs.find((t) => t.id === tvId)
+  if (tv) return res.json({ approved: true })
+  const p = codes.pending[tvId]
+  if (!p) return res.json({ approved: false })
+  if (Date.now() - p.createdAt > 10 * 60 * 1000) {
+    delete codes.pending[tvId]
     writeJSON('codes.json', codes)
-    logLine(`CODE_EXPIRED code=${code}`)
-    return res.status(410).json({ error: 'Código expirado' })
+    logLine(`CODE_EXPIRED tv=${tvId} code=${p.code}`)
+    return res.json({ approved: false, expired: true })
   }
-  res.json({ approved: false })
+  res.json({ approved: false, code: p.code, expiresAt: p.createdAt + 10 * 60 * 1000 })
 })
 
 // -------------------- TVs --------------------
 app.post('/api/tvs/approve', (req, res) => {
-  const { code, name, location } = req.body
-  if (!code || !name || !location) return res.status(400).json({ error: 'Payload inválido' })
+  const { tvId: bodyTvId, code: bodyCode, name, location } = req.body
+  if (!name || !location) return res.status(400).json({ error: 'Payload inválido' })
   const codes = readJSON('codes.json', { pending: {} })
-  if (!codes.pending[code]) return res.status(400).json({ error: 'Código expirado' })
-
   const tvs = readJSON('tvs.json', { tvs: [] })
-  const id = nanoid(8)
-  tvs.tvs.push({ id, name, location, createdAt: Date.now(), lastContact: null, nowPlaying: null, lastCode: code, onlineSince: null })
+  let tvId = bodyTvId
+  if (!tvId && bodyCode) {
+    tvId = Object.keys(codes.pending).find((id) => codes.pending[id]?.code === bodyCode)
+  }
+  if (!tvId) return res.status(400).json({ error: 'Código inválido' })
+  const p = codes.pending[tvId]
+  if (!p) return res.status(400).json({ error: 'Código expirado' })
+  if (Date.now() - p.createdAt > 10 * 60 * 1000) {
+    delete codes.pending[tvId]
+    writeJSON('codes.json', codes)
+    logLine(`CODE_EXPIRED tv=${tvId} code=${p.code}`)
+    return res.status(400).json({ error: 'Código expirado' })
+  }
+  const exists = tvs.tvs.find((t) => t.id === tvId)
+  if (!exists) {
+    tvs.tvs.push({ id: tvId, name, location, createdAt: Date.now(), lastContact: null, nowPlaying: null, lastCode: p.code, onlineSince: null })
+  } else {
+    exists.name = name
+    exists.location = location
+    exists.lastCode = p.code
+  }
   writeJSON('tvs.json', tvs)
-  delete codes.pending[code]
+  delete codes.pending[tvId]
   writeJSON('codes.json', codes)
-
   const pls = readJSON('playlists.json', { playlists: {} })
-  if (!pls.playlists[id]) pls.playlists[id] = { items: [], fixed: { enabled: false, item: null }, updatedAt: Date.now() }
+  if (!pls.playlists[tvId]) pls.playlists[tvId] = { items: [], fixed: { enabled: false, item: null }, updatedAt: Date.now() }
   writeJSON('playlists.json', pls)
-
-  logLine(`TV_APPROVED id=${id} name="${name}" location="${location}" code=${code}`)
-  res.json({ ok: true, tvId: id })
+  logLine(`PAIR_APPROVED tv=${tvId} name="${name}" location="${location}" code=${p.code}`)
+  res.json({ ok: true, tvId })
 })
 
 app.get('/api/tvs', (req, res) => res.json(readJSON('tvs.json', { tvs: [] }).tvs))
+app.get('/api/tvs/:id/status', (req, res) => {
+  const tvs = readJSON('tvs.json', { tvs: [] })
+  const exists = !!tvs.tvs.find((t) => t.id === req.params.id)
+  res.json({ exists })
+})
+app.get('/api/pending', (req, res) => {
+  const codes = readJSON('codes.json', { pending: {} })
+  const list = Object.entries(codes.pending).map(([tvId, p]) => ({ tvId, code: p.code, expiresAt: p.createdAt + 10 * 60 * 1000 })).filter((i) => i.expiresAt > Date.now())
+  res.json(list)
+})
+
+app.post('/api/pair/approve', (req, res) => {
+  const { tvId, name, location, group } = req.body
+  if (!tvId || !name || !location) return res.status(400).json({ error: 'Payload inválido' })
+  const codes = readJSON('codes.json', { pending: {} })
+  const p = codes.pending[tvId]
+  if (!p) return res.status(400).json({ error: 'Código expirado' })
+  if (Date.now() - p.createdAt > 10 * 60 * 1000) {
+    delete codes.pending[tvId]
+    writeJSON('codes.json', codes)
+    logLine(`CODE_EXPIRED tv=${tvId} code=${p.code}`)
+    return res.status(400).json({ error: 'Código expirado' })
+  }
+  const tvs = readJSON('tvs.json', { tvs: [] })
+  let tv = tvs.tvs.find((t) => t.id === tvId)
+  if (!tv) {
+    tv = { id: tvId, name, location, group: group || null, createdAt: Date.now(), lastContact: null, nowPlaying: null, lastCode: p.code, onlineSince: null }
+    tvs.tvs.push(tv)
+  } else {
+    tv.name = name
+    tv.location = location
+    tv.group = group || null
+    tv.lastCode = p.code
+  }
+  writeJSON('tvs.json', tvs)
+  delete codes.pending[tvId]
+  writeJSON('codes.json', codes)
+  const pls = readJSON('playlists.json', { playlists: {} })
+  if (!pls.playlists[tvId]) pls.playlists[tvId] = { items: [], fixed: { enabled: false, item: null }, updatedAt: Date.now() }
+  writeJSON('playlists.json', pls)
+  logLine(`PAIR_APPROVED tv=${tvId} name="${name}" location="${location}" group="${group || '-'}" code=${p.code}`)
+  res.json({ ok: true, tvId })
+})
 
 app.post('/api/tvs/:id/heartbeat', (req, res) => {
   const { id } = req.params
@@ -150,32 +219,105 @@ app.delete('/api/tvs/:id', (req, res) => {
 
 // -------------------- Playlists --------------------
 function normalizeItems(items) {
-  // Regra de uniformização de duração (evita "picos" quando misturam durações diferentes).
   const enforce = String(process.env.ENFORCE_UNIFORM_DURATION || 'true') === 'true'
   const defDur = parseInt(process.env.UNIFORM_DURATION_SECONDS || '8', 10)
-  return items.map((it) => ({
+  const allowed = new Set(['image', 'video'])
+  const filtered = items.filter((it) => it && allowed.has(it.type) && typeof it.src === 'string' && it.src.trim().length > 0)
+  return filtered.map((it) => ({
     ...it,
+    enabled: it.enabled !== false,
     duration: it.type === 'image' ? (enforce ? defDur : (it.duration || defDur)) : it.duration,
   }))
 }
 
 app.get('/api/playlists/:tvId', (req, res) => {
   res.set('Cache-Control', 'no-store')
+  const tvId = req.params.tvId
+  const assigns = readJSON('playlist_assignments.json', { assignments: {} })
+  const lib = readJSON('playlist_lib.json', { playlists: {} })
+  const assigned = assigns.assignments[tvId]
+  if (assigned && lib.playlists[assigned]) {
+    const pl = lib.playlists[assigned]
+    return res.json({ items: pl.items || [], fixed: pl.fixed || { enabled: false, item: null }, updatedAt: pl.updatedAt || 0, name: pl.name || null, playlistId: assigned })
+  }
   const pls = readJSON('playlists.json', { playlists: {} })
-  res.json(pls.playlists[req.params.tvId] || { items: [], fixed: { enabled: false, item: null }, updatedAt: 0 })
+  const p = pls.playlists[tvId]
+  if (p) return res.json({ items: p.items || [], fixed: p.fixed || { enabled: false, item: null }, updatedAt: p.updatedAt || 0, name: p.name || null })
+  res.json({ items: [], fixed: { enabled: false, item: null }, updatedAt: 0 })
 })
 
 app.get('/api/playlists/:tvId/updatedAt', (req, res) => {
+  const assigns = readJSON('playlist_assignments.json', { assignments: {} })
+  const lib = readJSON('playlist_lib.json', { playlists: {} })
+  const id = assigns.assignments[req.params.tvId]
+  if (id && lib.playlists[id]) return res.json({ updatedAt: lib.playlists[id].updatedAt || 0 })
   const pls = readJSON('playlists.json', { playlists: {} })
   const p = pls.playlists[req.params.tvId]
   res.json({ updatedAt: p ? p.updatedAt || 0 : 0 })
 })
 
+app.get('/api/playlist-lib', (req, res) => {
+  const lib = readJSON('playlist_lib.json', { playlists: {} })
+  const list = Object.entries(lib.playlists).map(([id, p]) => ({ id, name: p.name || 'Sem nome', updatedAt: p.updatedAt || 0 }))
+  res.json(list)
+})
+app.post('/api/playlist-lib', (req, res) => {
+  const { name } = req.body || {}
+  const id = nanoid(8)
+  const lib = readJSON('playlist_lib.json', { playlists: {} })
+  lib.playlists[id] = { name: name || 'Nova Playlist', items: [], fixed: { enabled: false, item: null }, updatedAt: Date.now() }
+  writeJSON('playlist_lib.json', lib)
+  logLine(`PLAYLIST_LIB_CREATED id=${id} name="${lib.playlists[id].name}"`)
+  res.json({ ok: true, id })
+})
+app.get('/api/playlist-lib/:id', (req, res) => {
+  const lib = readJSON('playlist_lib.json', { playlists: {} })
+  const p = lib.playlists[req.params.id]
+  res.json(p || { name: null, items: [], fixed: { enabled: false, item: null }, updatedAt: 0 })
+})
+app.put('/api/playlist-lib/:id', (req, res) => {
+  const { name, items, fixed } = req.body || {}
+  const lib = readJSON('playlist_lib.json', { playlists: {} })
+  const cur = lib.playlists[req.params.id] || { name: 'Playlist', items: [], fixed: { enabled: false, item: null }, updatedAt: 0 }
+  lib.playlists[req.params.id] = { name: name ?? cur.name, items: Array.isArray(items) ? items : cur.items, fixed: fixed ?? cur.fixed, updatedAt: Date.now() }
+  writeJSON('playlist_lib.json', lib)
+  logLine(`PLAYLIST_LIB_SAVED id=${req.params.id} items=${lib.playlists[req.params.id].items.length}`)
+  res.json({ ok: true })
+})
+app.delete('/api/playlist-lib/:id', (req, res) => {
+  const lib = readJSON('playlist_lib.json', { playlists: {} })
+  delete lib.playlists[req.params.id]
+  writeJSON('playlist_lib.json', lib)
+  logLine(`PLAYLIST_LIB_REMOVED id=${req.params.id}`)
+  res.json({ ok: true })
+})
+
+app.get('/api/playlist-assignments', (req, res) => {
+  const a = readJSON('playlist_assignments.json', { assignments: {} })
+  res.json(a)
+})
+app.post('/api/playlist-assignments', (req, res) => {
+  const { tvIds, playlistId } = req.body || {}
+  if (!Array.isArray(tvIds) || !playlistId) return res.status(400).json({ error: 'Payload inválido' })
+  const a = readJSON('playlist_assignments.json', { assignments: {} })
+  for (const tv of tvIds) a.assignments[tv] = playlistId
+  writeJSON('playlist_assignments.json', a)
+  logLine(`PLAYLIST_ASSIGNED id=${playlistId} tvs=${tvIds.length}`)
+  res.json({ ok: true })
+})
+
 app.post('/api/playlists/:tvId', (req, res) => {
-  const { items, fixed } = req.body
+  const { items, fixed, name } = req.body
   if (!Array.isArray(items)) return res.status(400).json({ error: 'Payload inválido: items[] obrigatório' })
   const pls = readJSON('playlists.json', { playlists: {} })
   let newItems = normalizeItems(items)
+  // Validação de janelas por item
+  newItems = newItems.filter((it) => {
+    const s = it.start_at ? Date.parse(it.start_at) : null
+    const e = it.end_at ? Date.parse(it.end_at) : null
+    if (s && e && e < s) return false
+    return true
+  })
 
   // Regra: se houver apenas UMA imagem e SINGLE_IMAGE_AS_FIXED=true, publica como conteúdo fixo.
   const singleAsFixed = String(process.env.SINGLE_IMAGE_AS_FIXED || 'true') === 'true'
@@ -183,6 +325,10 @@ app.post('/api/playlists/:tvId', (req, res) => {
   const images = newItems.filter((i) => i.type === 'image')
   if (singleAsFixed && newItems.length === 1 && images.length === 1) {
     next = { items: [], fixed: { enabled: true, item: { type: 'image', src: images[0].src, duration: images[0].duration || 8 } }, updatedAt: Date.now() }
+  }
+  if (typeof name === 'string') {
+    const s = name.trim()
+    if (s.length >= 3 && s.length <= 64) next.name = s
   }
 
   pls.playlists[req.params.tvId] = next

@@ -1,22 +1,22 @@
 {
   "playlists": {
-    "3cwNirxW": {
+    "e5C3zAOv": {
+      "name": "Nova Playlist",
       "items": [],
       "fixed": {
         "enabled": false,
         "item": null
       },
-      "updatedAt": 1763408388695,
-      "name": "Nova Playlist"
+      "updatedAt": 1763404213861
     },
-    "-b7myL44": {
+    "_U6VIOa2": {
+      "name": "Nova Playlist",
       "items": [],
       "fixed": {
         "enabled": false,
         "item": null
       },
-      "updatedAt": 1763407249970,
-      "name": "Nova Playlist"
+      "updatedAt": 1763404417430
     }
   }
 }

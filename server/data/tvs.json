@@ -1,23 +1,14 @@
 {
   "tvs": [
     {
-      "id": "gIll2tTC",
-      "name": "Teste",
-      "location": "Ti",
-      "createdAt": 1763383069363,
+      "id": "3cwNirxW",
+      "name": "hector_monitor",
+      "location": "laboratório",
+      "group": "interno",
+      "createdAt": 1763407061691,
       "lastContact": null,
       "nowPlaying": null,
-      "lastCode": "780-976",
-      "onlineSince": null
-    },
-    {
-      "id": "hUdeRRdI",
-      "name": "sla",
-      "location": "sla",
-      "createdAt": 1763383183949,
-      "lastContact": null,
-      "nowPlaying": null,
-      "lastCode": "371-925",
+      "lastCode": "533-937",
       "onlineSince": null
     }
   ]
