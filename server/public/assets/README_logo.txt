@@ -1,0 +1,1 @@
+Coloque sua logo como logo.jpg (128x128 recomendado). Se ausente, fallback para default_logo.svg.

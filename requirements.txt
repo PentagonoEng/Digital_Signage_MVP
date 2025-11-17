@@ -1,0 +1,1 @@
+# (Opcional) Nenhuma dependência Python obrigatória neste release.

@@ -1,0 +1,8 @@
+html,body{height:100%;margin:0;background:#000;color:#fff;font:20px/1.4 system-ui,Segoe UI,Roboto}
+.pair{display:flex;height:100%;align-items:center;justify-content:center;flex-direction:column}
+.code{font-size:11vw;letter-spacing:6px;font-weight:800}
+.hint{opacity:.7;margin-top:16px}
+.player{position:fixed;inset:0;overflow:hidden;background:#000}
+.layer{position:absolute;inset:0}
+.layer img,.layer video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .6s}
+.layer.show img,.layer.show video{opacity:1}

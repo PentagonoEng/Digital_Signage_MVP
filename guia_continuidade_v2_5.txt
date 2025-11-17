@@ -1,0 +1,26 @@
+GUIA DE CONTINUIDADE — v2.5 (2025-11-04 13:37)
+===========================================
+
+1) O que mudou
+- Player sem “piscadas”: crossfade com **pré-carregamento** (imagem: `load`, vídeo: `canplay`).
+- Regras de playlist: **duração uniforme** (por padrão 8s) e **single-image => conteúdo fixo**.
+- Monitoramento: uptime/preview/restart preservados.
+- Infra: `.nvmrc`, `ENV.example`, Dockerfile/compose, ESLint/Prettier.
+
+2) Como rodar
+```
+cd server
+npm install
+npm start
+```
+Painel: http://localhost:3000/painel  |  Display: http://SEU_IP:3000/display
+
+3) Boas práticas de mídia
+- Imagens 1920x1080 (ou 3840x2160). Vídeos MP4/H.264, yuv420p, CRF 18–22 ou 8 Mbps.
+- Evite WhatsApp; prefira originais ou HandBrake (Fast 1080p30).
+
+4) Docs & APIs
+- Leia `docs/ARCHITECTURE.md`, `docs/ROUTES.md`, `docs/API_REFERENCE.yaml`.
+
+5) Próximos passos
+- Schedules, autenticação (JWT/Helmet), pipeline de mídia avançado (sharp/ffmpeg worker), métricas.

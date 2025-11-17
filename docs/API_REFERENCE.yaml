@@ -1,0 +1,75 @@
+openapi: 3.0.3
+info:
+  title: Digital Signage Panel API
+  version: 2.5.0
+paths:
+  /api/tvs:
+    get:
+      summary: Lista TVs
+      responses:
+        '200': { description: OK }
+  /api/tvs/{id}/heartbeat:
+    post:
+      summary: Heartbeat da TV
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nowPlaying: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/playlists/{tvId}:
+    get:
+      summary: Obtém playlist/fixed
+      parameters:
+        - name: tvId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Salva playlist/fixed
+      parameters:
+        - name: tvId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type: { type: string, enum: [image, video] }
+                      src: { type: string }
+                      duration: { type: integer }
+                      enabled: { type: boolean }
+                      start_at: { type: string, format: date-time, nullable: true }
+                      end_at: { type: string, format: date-time, nullable: true }
+                fixed:
+                  type: object
+                  properties:
+                    enabled: { type: boolean }
+                    item:
+                      type: object
+                      properties:
+                        type: { type: string, enum: [image, video] }
+                        src: { type: string }
+                        duration: { type: integer }
+      responses:
+        '200': { description: OK }

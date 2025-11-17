@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./server/data:/app/server/data
+      - ./server/public/uploads:/app/server/public/uploads
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0

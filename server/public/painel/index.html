@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Signage — Painel</title>
+  <link rel="stylesheet" href="/painel/styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="/assets/logo.jpg" onerror="this.onerror=null;this.src='/assets/default_logo.svg'" alt="Logo" class="logo-img"/>
+      <div>
+        <div class="brand-title">Digital Signage</div>
+        <div class="brand-sub">Painel Profissional</div>
+      </div>
+    </div>
+    <nav class="menu">
+      <button data-tab="dashboard" class="active">Dashboard</button>
+      <button data-tab="parear">Parear TV</button>
+      <button data-tab="conteudo">Conteúdo & Playlist</button>
+      <button data-tab="tvs">TVs</button>
+      <button data-tab="logs">Logs</button>
+    </nav>
+  </aside>
+  <main class="content">
+    <header class="topbar"><h1 id="page-title">Dashboard</h1></header>
+
+    <section id="tab-dashboard" class="tab active">
+      <div class="cards">
+        <div class="kpi kpi-orange"><div>Total de TVs</div><b id="kpi-total">0</b></div>
+        <div class="kpi"><div>Ativas</div><b id="kpi-ativas">0</b></div>
+        <div class="kpi"><div>Offline</div><b id="kpi-off">0</b></div>
+        <div class="kpi"><div>Pendentes</div><b id="kpi-pend">0</b></div>
+      </div>
+      <div class="panel">
+        <h3>TVs Conectadas</h3>
+        <div id="dash-tvs" class="tv-grid"></div>
+      </div>
+    </section>
+
+    <section id="tab-parear" class="tab">
+      <div class="panel form">
+        <h3>Parear TV</h3>
+        <div class="grid">
+          <div><label>Código</label><input id="pair-code" placeholder="ex.: 123-456"/></div>
+          <div><label>Nome</label><input id="pair-name" placeholder="ex.: Recepção"/></div>
+          <div><label>Local</label><input id="pair-location" placeholder="ex.: Matriz"/></div>
+        </div>
+        <button id="btn-approve" class="primary">Aprovar</button>
+        <p id="pair-result" class="result"></p>
+      </div>
+    </section>
+
+    <section id="tab-conteudo" class="tab">
+      <div class="panel">
+        <div class="toolbar">
+          <div>
+            <label>Selecionar TV</label>
+            <select id="pl-tv"></select>
+          </div>
+          <div class="actions">
+            <input type="file" id="file-input" accept="image/*,video/*" multiple />
+            <button id="btn-upload" class="primary">Upload</button>
+            <button id="btn-save" class="primary">Salvar / Enviar</button>
+          </div>
+        </div>
+        <div class="layout">
+          <div class="col">
+            <h4>Mídia</h4>
+            <div id="media-grid" class="grid-thumbs minimal"></div>
+          </div>
+          <div class="col">
+            <h4>Playlist</h4>
+            <div id="pl-items" class="pl-list"></div>
+            <p class="hint">Arraste para ordenar | Clique para editar duração.</p>
+            <div class="fixed">
+              <h4>Conteúdo Fixo</h4>
+              <label><input type="checkbox" id="fixed-enabled"/> Ativar (um arquivo o dia todo)</label>
+              <div class="fixed-row">
+                <input id="fixed-src" placeholder="/uploads/arquivo.jpg ou .mp4"/>
+                <select id="fixed-type"><option value="image">Imagem</option><option value="video">Vídeo</option></select>
+                <button id="btn-use-selected">Usar seleção</button>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <h4>Pré-visualização</h4>
+            <div class="preview-area">
+              <img id="preview-img" style="display:none;"/>
+              <video id="preview-video" style="display:none;" controls muted></video>
+            </div>
+          </div>
+        </div>
+        <p id="pl-status" class="result"></p>
+      </div>
+    </section>
+
+    <section id="tab-tvs" class="tab">
+      <div class="panel">
+        <h3>TVs</h3>
+        <table id="tvs-table"><thead><tr><th>Nome</th><th>Local</th><th>Uptime</th><th>Agora</th><th>Preview</th><th>Ações</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <section id="tab-logs" class="tab">
+      <div class="panel">
+        <h3>Logs</h3>
+        <pre id="logs-box" class="logs"></pre>
+        <button id="btn-refresh-logs">Atualizar</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/painel/app.js"></script>
+</body>
+</html>
